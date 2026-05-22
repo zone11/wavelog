@@ -17,11 +17,13 @@ class Staticmap_model extends CI_Model {
      * @param $pathlines  			Whether to display pathlines
      * @param $cqzones  			Whether to display CQ zones
      * @param $ituzones  			Whether to display ITU zones
+     * @param $fit  			    Whether to auto fit the map viewport
+     * @param $padding  			Padding in px for auto fit viewport
      * 
      * @return bool  True if the image was rendered successfully, false if not
      */
 
-    function render_static_map($qsos, $uid, $centerMap, $station_coordinates, $filepath, $continent = null, $thememode = null, $hide_home = false, $night_shadow = false, $pathlines = false, $cqzones = false, $ituzones = false, $watermark = true) {
+    function render_static_map($qsos, $uid, $centerMap, $station_coordinates, $filepath, $continent = null, $thememode = null, $hide_home = false, $night_shadow = false, $pathlines = false, $cqzones = false, $ituzones = false, $watermark = true, $fit = '', $padding = 128) {
 
         //===============================================================================================================================
         //=============================================== PREPARE AND LOAD DEPENDENCIES =================================================
@@ -146,18 +148,8 @@ class Staticmap_model extends CI_Model {
             }
         }
 
-        if ($zoom == 3) {
-            $marker_size = 18;
-        } elseif ($zoom == 4) {
-            $marker_size = 24;
-        } elseif ($zoom == 5) {
-            $marker_size = 28;
-        } else {
-            $marker_size = 20;
-        }
-
         //===============================================================================================================================
-        //================================================ CREATE AN INSTANCE OF THE MAP ================================================
+        //====================================================== PREPARE TILE LAYER =====================================================
         //===============================================================================================================================
 
         // Set the tile layer
@@ -184,9 +176,6 @@ class Staticmap_model extends CI_Model {
         } else {
             $tileLayer = \Wavelog\StaticMapImage\TileLayer::defaultTileLayer();
         }
-
-        // Create the map
-        $map = new \Wavelog\StaticMapImage\OpenStreetMap(new \Wavelog\StaticMapImage\LatLng($centerMapLat, $centerMapLng), $zoom, $width, $height, $tileLayer);
 
         //===============================================================================================================================
         //====================================================== RENDER THE ICONS =======================================================
@@ -261,6 +250,12 @@ class Staticmap_model extends CI_Model {
         $markerQsosConfirmed = [];
         $paths = [];
         $paths_cnfd = [];
+        $viewportPoints = [];
+        if ($fit == 'auto' && !$hide_home) {
+            foreach ($station_coordinates as $station) {
+                $viewportPoints[] = new \Wavelog\StaticMapImage\LatLng($station[0], $station[1]);
+            }
+        }
         $user_default_confirmation = $this->visitor_model->get_user_default_confirmation($uid);
         foreach ($qsos->result('array') as $qso) {
             if (!empty($qso['COL_GRIDSQUARE'])) {
@@ -282,10 +277,17 @@ class Staticmap_model extends CI_Model {
                 }
             }
 
+            if ($fit == 'auto') {
+                $viewportPoints[] = new \Wavelog\StaticMapImage\LatLng($lat, $lng);
+            }
+
             if ($this->visitor_model->qso_is_confirmed($qso, $user_default_confirmation) == true) {
                 if ($pathlines) {
                     $station_grid = $this->stations->profile($qso['station_id'])->row()->station_gridsquare;
                     $station_latlng = $this->qra->qra2latlong($station_grid);
+                    if ($fit == 'auto' && !$hide_home) {
+                        $viewportPoints[] = new \Wavelog\StaticMapImage\LatLng($station_latlng[0], $station_latlng[1]);
+                    }
                     $paths_cnfd[] = $this->draw_pathline($station_latlng, $latlng, $continentEnabled, '04A902', $line_pxsize); // Green
                 }
                 $markerQsosConfirmed[] = new \Wavelog\StaticMapImage\LatLng($lat, $lng);
@@ -294,12 +296,38 @@ class Staticmap_model extends CI_Model {
                 if ($pathlines) {
                     $station_grid = $this->stations->profile($qso['station_id'])->row()->station_gridsquare;
                     $station_latlng = $this->qra->qra2latlong($station_grid);
+                    if ($fit == 'auto' && !$hide_home) {
+                        $viewportPoints[] = new \Wavelog\StaticMapImage\LatLng($station_latlng[0], $station_latlng[1]);
+                    }
                     $paths[] = $this->draw_pathline($station_latlng, $latlng, $continentEnabled, 'ff0000', $line_pxsize); // Red
                 }
                 $markerQsos[] = new \Wavelog\StaticMapImage\LatLng($lat, $lng);
                 continue;
             }
         }
+
+        if ($fit == 'auto') {
+            $viewport = $this->calculate_auto_fit_viewport($viewportPoints, $width, $height, $padding, 1, 8);
+            if ($viewport != false) {
+                $centerMapLat = $viewport['center']->getLat();
+                $centerMapLng = $viewport['center']->getLng();
+                $zoom = $viewport['zoom'];
+                $centerMap = $centerMapLat . $centerMapLng; // used for cached tiles
+            }
+        }
+
+        if ($zoom == 3) {
+            $marker_size = 18;
+        } elseif ($zoom == 4) {
+            $marker_size = 24;
+        } elseif ($zoom == 5) {
+            $marker_size = 28;
+        } else {
+            $marker_size = 20;
+        }
+
+        // Create the map
+        $map = new \Wavelog\StaticMapImage\OpenStreetMap(new \Wavelog\StaticMapImage\LatLng($centerMapLat, $centerMapLng), $zoom, $width, $height, $tileLayer);
 
         //===============================================================================================================================
         //==================================================== PREPARE THE MARKERS ======================================================
@@ -617,6 +645,131 @@ class Staticmap_model extends CI_Model {
         }
 
         return $path;
+    }
+
+    function calculate_auto_fit_viewport($points, $width, $height, $padding = 128, $minZoom = 1, $maxZoom = 8) {
+        if (empty($points)) {
+            return false;
+        }
+
+        if (!ctype_digit((string) $padding) || $padding < 0 || $padding > 512) {
+            $padding = 128;
+        }
+        $padding = (int) $padding;
+
+        $latitudes = [];
+        $longitudes = [];
+        foreach ($points as $point) {
+            $latitudes[] = $this->clamp_web_mercator_lat($point->getLat());
+            $longitudes[] = $this->normalize_longitude_360($point->getLng());
+        }
+
+        if (empty($latitudes) || empty($longitudes)) {
+            return false;
+        }
+
+        if (count($points) == 1) {
+            return [
+                'center' => new \Wavelog\StaticMapImage\LatLng($latitudes[0], $this->normalize_longitude_180($longitudes[0])),
+                'zoom' => min(max(5, $minZoom), $maxZoom)
+            ];
+        }
+
+        $minLat = min($latitudes);
+        $maxLat = max($latitudes);
+        sort($longitudes);
+
+        $largestGap = -1;
+        $largestGapIndex = 0;
+        $countLongitudes = count($longitudes);
+        for ($i = 0; $i < $countLongitudes - 1; $i++) {
+            $gap = $longitudes[$i + 1] - $longitudes[$i];
+            if ($gap > $largestGap) {
+                $largestGap = $gap;
+                $largestGapIndex = $i;
+            }
+        }
+
+        $wrapGap = $longitudes[0] + 360 - $longitudes[$countLongitudes - 1];
+        if ($wrapGap > $largestGap) {
+            $largestGap = $wrapGap;
+            $leftLng = $longitudes[0];
+            $rightLng = $longitudes[$countLongitudes - 1];
+        } else {
+            $leftLng = $longitudes[$largestGapIndex + 1];
+            $rightLng = $longitudes[$largestGapIndex] + 360;
+        }
+
+        $lngSpan = $rightLng - $leftLng;
+        $centerLng = $this->normalize_longitude_180($leftLng + ($lngSpan / 2));
+
+        $topY = $this->lat_to_mercator_y($maxLat);
+        $bottomY = $this->lat_to_mercator_y($minLat);
+        $latSpan = abs($bottomY - $topY);
+        $centerY = ($topY + $bottomY) / 2;
+        $centerLat = $this->mercator_y_to_lat($centerY);
+
+        if ($lngSpan == 0 && $latSpan == 0) {
+            return [
+                'center' => new \Wavelog\StaticMapImage\LatLng($centerLat, $centerLng),
+                'zoom' => min(max(5, $minZoom), $maxZoom)
+            ];
+        }
+
+        $tileSize = 256;
+        $effectiveWidth = max(1, $width - ($padding * 2));
+        $effectiveHeight = max(1, $height - ($padding * 2));
+        $xSpan = ($lngSpan / 360) * $tileSize;
+        $ySpan = $latSpan * $tileSize;
+        $ratios = [];
+
+        if ($xSpan > 0) {
+            $ratios[] = $effectiveWidth / $xSpan;
+        }
+        if ($ySpan > 0) {
+            $ratios[] = $effectiveHeight / $ySpan;
+        }
+        if (empty($ratios)) {
+            return false;
+        }
+
+        $zoom = (int) floor(log(min($ratios), 2));
+        $zoom = min(max($zoom, $minZoom), $maxZoom);
+
+        return [
+            'center' => new \Wavelog\StaticMapImage\LatLng($centerLat, $centerLng),
+            'zoom' => $zoom
+        ];
+    }
+
+    function normalize_longitude_360($longitude) {
+        $longitude = fmod($longitude, 360);
+        if ($longitude < 0) {
+            $longitude += 360;
+        }
+        return $longitude;
+    }
+
+    function normalize_longitude_180($longitude) {
+        $longitude = fmod($longitude + 180, 360);
+        if ($longitude < 0) {
+            $longitude += 360;
+        }
+        return $longitude - 180;
+    }
+
+    function clamp_web_mercator_lat($latitude) {
+        return min(max($latitude, -85.05112878), 85.05112878);
+    }
+
+    function lat_to_mercator_y($latitude) {
+        $latitude = $this->clamp_web_mercator_lat($latitude);
+        $latRad = deg2rad($latitude);
+        return (1 - log(tan($latRad) + (1 / cos($latRad))) / M_PI) / 2;
+    }
+
+    function mercator_y_to_lat($y) {
+        return rad2deg(atan(sinh(M_PI * (1 - (2 * $y)))));
     }
 
     /**
