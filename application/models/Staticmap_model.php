@@ -88,61 +88,75 @@ class Staticmap_model extends CI_Model {
             if ($continent == 'AF') {
                 $continentEnabled = true;
                 $continentText = 'Africa';
-                $centerMapLat = 2;
-                $centerMapLng = 20;
-                $zoom = 5;
-                $height = round(($width * 4) / 4);
-                $fontPosX = $height - 20;
+                if ($fit != 'auto') {
+                    $centerMapLat = 2;
+                    $centerMapLng = 20;
+                    $zoom = 5;
+                    $height = round(($width * 4) / 4);
+                    $fontPosX = $height - 20;
+                }
             } elseif ($continent == 'AS') {
                 $continentEnabled = true;
                 $continentText = 'Asia';
-                $centerMapLat = 45;
-                $centerMapLng = 100;
-                $zoom = 4;
-                $contFontPosX = $width - ($width - 50);
+                if ($fit != 'auto') {
+                    $centerMapLat = 45;
+                    $centerMapLng = 100;
+                    $zoom = 4;
+                    $contFontPosX = $width - ($width - 50);
+                }
             } elseif ($continent == 'EU') {
                 $continentEnabled = true;
                 $continentText = 'Europe';
-                $centerMapLat = 65;
-                $centerMapLng = 15;
-                $height = round(($width * 5) / 4);
-                $zoom = 5;
-                $fontPosX = $height - 20;
-                $contFontPosX = $width - ($width - 50);
+                if ($fit != 'auto') {
+                    $centerMapLat = 65;
+                    $centerMapLng = 15;
+                    $height = round(($width * 5) / 4);
+                    $zoom = 5;
+                    $fontPosX = $height - 20;
+                    $contFontPosX = $width - ($width - 50);
+                }
             } elseif ($continent == 'NA') {
                 $continentEnabled = true;
                 $continentText = 'North America';
-                $centerMapLat = 55;
-                $centerMapLng = -100;
-                $zoom = 4;
-                $contFontPosX = $width - ($width - 110);
+                if ($fit != 'auto') {
+                    $centerMapLat = 55;
+                    $centerMapLng = -100;
+                    $zoom = 4;
+                    $contFontPosX = $width - ($width - 110);
+                }
             } elseif ($continent == 'OC') {
                 $continentEnabled = true;
                 $continentText = 'Oceania';
-                $centerMapLat = -25;
-                $centerMapLng = 140;
-                $zoom = 5;
-                $contFontPosX = $width - ($width - 70);
+                if ($fit != 'auto') {
+                    $centerMapLat = -25;
+                    $centerMapLng = 140;
+                    $zoom = 5;
+                    $contFontPosX = $width - ($width - 70);
+                }
             } elseif ($continent == 'SA') {
                 $continentEnabled = true;
                 $continentText = 'South America';
-                $centerMapLat = -26;
-                $centerMapLng = -60;
-                $zoom = 5;
-                $width = 1570;
-                $height = round(($width * 5) / 4);
-                $fontPosX = $height - 20;
-                $contFontPosX = $width - ($width - 110);
+                if ($fit != 'auto') {
+                    $centerMapLat = -26;
+                    $centerMapLng = -60;
+                    $zoom = 5;
+                    $width = 1570;
+                    $height = round(($width * 5) / 4);
+                    $fontPosX = $height - 20;
+                    $contFontPosX = $width - ($width - 110);
+                }
             } elseif ($continent == 'AN') {
                 $continentEnabled = true;
                 $continentText = 'Antarctica';
-                $centerMapLat = -73;
-                $centerMapLng = 0;
-                $zoom = 3;
-                $watermark_size_mutiplier = 1;
-                $height = round(($width * 1.5) / 4);
-                $fontPosX = $height - 20;
-                $contFontPosX = $width - ($width - 90);
+                if ($fit != 'auto') {
+                    $centerMapLat = -73;
+                    $centerMapLng = 0;
+                    $zoom = 3;
+                    $watermark_size_mutiplier = 1;
+                    $height = round(($width * 1.5) / 4);
+                    $fontPosX = $height - 20;
+                    $contFontPosX = $width - ($width - 90);
+                }
             } else {
                 // we don't want to change the default values in this case
             }
