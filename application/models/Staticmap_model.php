@@ -18,12 +18,11 @@ class Staticmap_model extends CI_Model {
      * @param $cqzones  			Whether to display CQ zones
      * @param $ituzones  			Whether to display ITU zones
      * @param $fit  			    Whether to auto fit the map viewport
-     * @param $padding  			Padding in px for auto fit viewport
      * 
      * @return bool  True if the image was rendered successfully, false if not
      */
 
-    function render_static_map($qsos, $uid, $centerMap, $station_coordinates, $filepath, $continent = null, $thememode = null, $hide_home = false, $night_shadow = false, $pathlines = false, $cqzones = false, $ituzones = false, $watermark = true, $fit = '', $padding = 128) {
+    function render_static_map($qsos, $uid, $centerMap, $station_coordinates, $filepath, $continent = null, $thememode = null, $hide_home = false, $night_shadow = false, $pathlines = false, $cqzones = false, $ituzones = false, $watermark = true, $fit = '') {
 
         //===============================================================================================================================
         //=============================================== PREPARE AND LOAD DEPENDENCIES =================================================
@@ -321,7 +320,7 @@ class Staticmap_model extends CI_Model {
         }
 
         if ($fit == 'auto') {
-            $viewport = $this->calculate_auto_fit_viewport($viewportPoints, $width, $height, $padding, 1, 8);
+            $viewport = $this->calculate_auto_fit_viewport($viewportPoints, $width, $height, 1, 8);
             if ($viewport != false) {
                 $centerMapLat = $viewport['center']->getLat();
                 $centerMapLng = $viewport['center']->getLng();
@@ -661,15 +660,12 @@ class Staticmap_model extends CI_Model {
         return $path;
     }
 
-    function calculate_auto_fit_viewport($points, $width, $height, $padding = 128, $minZoom = 1, $maxZoom = 8) {
+    function calculate_auto_fit_viewport($points, $width, $height, $minZoom = 1, $maxZoom = 8) {
         if (empty($points)) {
             return false;
         }
 
-        if (!ctype_digit((string) $padding) || $padding < 0 || $padding > 512) {
-            $padding = 128;
-        }
-        $padding = (int) $padding;
+        $padding = 128;
 
         $latitudes = [];
         $longitudes = [];

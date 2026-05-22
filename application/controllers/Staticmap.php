@@ -33,15 +33,6 @@ class Staticmap extends CI_Controller {
         $hide_home = $this->input->get('hide_home', TRUE) == 1 ? true : false;
         $contest = ($this->input->get('contest', TRUE) ?? '') == '' ? 'nContest' : strtoupper($this->input->get('contest', TRUE));
         $fit = ($this->input->get('fit', TRUE) ?? '') == 'auto' ? 'auto' : '';
-        $padding = $this->input->get('padding', TRUE) ?? 128;
-        if ($fit == 'auto') {
-            if (!ctype_digit((string) $padding) || $padding < 0 || $padding > 512) {
-                $padding = 128;
-            }
-            $padding = (int) $padding;
-        } else {
-            $padding = 128;
-        }
 
         $start_date = $this->input->get('start_date', TRUE) ?? 'noStart';   // Format YYYY-MM-DD
         $end_date = $this->input->get('end_date', TRUE) ?? 'noEnd';          // Format YYYY-MM-DD
@@ -133,7 +124,7 @@ class Staticmap extends CI_Controller {
                      . $day
                      . $watermark;
         if ($fit == 'auto') {
-            $filenameRaw .= $fit . $padding;
+            $filenameRaw .= $fit;
         }
 
         $filename = crc32('staticmap_' . $slug) . '_' . substr(md5($filenameRaw), 0, 12) . '.png';
@@ -201,7 +192,7 @@ class Staticmap extends CI_Controller {
                     $day
                 );
 
-                $image = $this->staticmap_model->render_static_map($qsos, $uid, $centerMap, $coordinates, $filepath, $continent, $thememode, $hide_home, $night_shadow, $pathlines, $cqzones, $ituzones, $watermark, $fit, $padding);
+                $image = $this->staticmap_model->render_static_map($qsos, $uid, $centerMap, $coordinates, $filepath, $continent, $thememode, $hide_home, $night_shadow, $pathlines, $cqzones, $ituzones, $watermark, $fit);
 
                 header('Content-Type: image/png');
 
